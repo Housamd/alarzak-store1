@@ -70,7 +70,7 @@ export async function GET(req: Request) {
       o.createdAt.toISOString(),
       o.status || "NEW",
       o.customerName || "",
-      o.businessName || "",
+      o.customer?.businessName || "",
       o.phone || "",
       o.city || "",
       o.postcode || "",
