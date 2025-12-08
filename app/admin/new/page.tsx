@@ -1,11 +1,8 @@
-// app/admin/products/new/page.tsx
-import ProductForm from "../ProductForm";
+// app/admin/new/page.tsx
+import { redirect } from "next/navigation";
 
-export default function NewProductPage() {
-  return (
-    <main className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold mb-4">Create Product</h1>
-      <ProductForm action="/admin/products/new" submitLabel="Create" />
-    </main>
-  );
+export default function AdminNewRedirectPage() {
+  // إعادة توجيه إلى صفحة إنشاء منتج الجديدة
+  redirect("/admin/products/new");
+  return null;
 }
