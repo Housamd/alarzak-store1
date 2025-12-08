@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Product" ADD COLUMN     "vatRate" INTEGER NOT NULL DEFAULT 20;

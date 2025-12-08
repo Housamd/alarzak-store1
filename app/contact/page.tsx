@@ -1,0 +1,1 @@
+export default function Contact(){return(<main className='container py-10'><h1 className='text-3xl font-bold mb-4'>Contact</h1><p className='mt-2'>Email: sales@example.com</p><p className='mt-1'>Phone: +44 20 1234 5678</p><p className='mt-1'>Hours: Mon–Fri, 9:00–17:00</p></main>)}

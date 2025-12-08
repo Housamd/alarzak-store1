@@ -1,0 +1,23 @@
+[
+  {
+    "id": "basmati-5kg",
+    "nameEn": "Premium Basmati Rice 5kg",
+    "sku": "BR-5KG",
+    "retailPriceGBP": 14.99,
+    "wholesalePriceGBP": 11.2
+  },
+  {
+    "id": "basmati-10kg",
+    "nameEn": "Premium Basmati Rice 10kg",
+    "sku": "BR-10KG",
+    "retailPriceGBP": 27.99,
+    "wholesalePriceGBP": 22.5
+  },
+  {
+    "id": "rose-water-500",
+    "nameEn": "Rose Water 500ml",
+    "sku": "RW-500",
+    "retailPriceGBP": 2.49,
+    "wholesalePriceGBP": 1.85
+  }
+]

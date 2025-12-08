@@ -1,0 +1,186 @@
+model SiteSettings {
+  id                 Int      @id @default(1)
+  siteName           String   @default("Al-Razak Cash & Carry")
+  tagline            String   @default("The best place to stock your shop or your home.")
+  primaryColor       String   @default("#111827")
+  accentColor        String   @default("#16a34a")
+
+  heroTitle          String?
+  heroSubtitle       String?
+
+  heroImageUrl       String?
+  heroHeight         String   @default("MEDIUM")
+  heroContentAlign   String   @default("LEFT")
+
+  productImageHeight Int      @default(220)
+  productImageFit    String   @default("contain")
+
+  logoUrl            String?  // ⬅ رابط شعار الشركة (لوغو)
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+
+
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/*
+  نوع الزبون:
+  - RETAIL    = زبون مفرد (افتراضي)
+  - WHOLESALE = زبون جملة
+*/
+enum CustomerType {
+  RETAIL
+  WHOLESALE
+}
+
+/*
+  طريقة التسليم:
+  - SHIP   = توصيل
+  - PICKUP = استلام من المستودع
+*/
+enum Delivery {
+  SHIP
+  PICKUP
+}
+
+/*
+  جدول الزبائن
+  - customerType افتراضي RETAIL
+*/
+model Customer {
+  id           String        @id @default(cuid())
+  number       String        @unique
+  codeHash     String
+  name         String?
+  email        String?
+  street       String?
+  city         String?
+  postcode     String?
+  phone        String?
+  businessName String?
+  passwordHash String?       // ← مهم جداً حتى يعمل الـ login
+  isActive     Boolean       @default(true)
+  isAdmin      Boolean       @default(false)
+  customerType CustomerType  @default(RETAIL)  // زبون مفرد افتراضياً
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  orders       Order[]
+}
+
+/*
+  جدول المنتجات
+*/
+model Product {
+  id                String    @id @default(cuid())
+  sku               String    @unique
+  slug              String?   @unique
+  nameEn            String
+  description       String?
+  barcode           String?
+  countryOfOrigin   String?
+  grossWeightKg     Decimal?  @db.Decimal(8, 3)
+  images            String[]  @default([])
+
+  retailPriceGBP    Decimal   @db.Decimal(10, 2)
+  wholesalePriceGBP Decimal   @db.Decimal(10, 2)
+
+  /// VAT rate in percent (0 or 20)
+  vatRate           Int       @default(20)
+
+  isActive          Boolean   @default(true)
+
+  /// For richer homepage sections
+  isOnOffer         Boolean   @default(false)
+  isShortDate       Boolean   @default(false)
+  isBestSeller      Boolean   @default(false)
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  categories        Category[]
+  orderItems        OrderItem[]
+}
+
+
+
+/*
+  جدول التصنيفات (Categories)
+*/
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  slug      String     @unique
+
+  products  Product[]
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([name])
+}
+
+/*
+  جدول الطلبات (Orders)
+*/
+model Order {
+  id              String    @id @default(cuid())
+  customerId      String?   // ⬅ صار اختياري
+  customer        Customer? @relation(fields: [customerId], references: [id])
+
+  createdAt       DateTime  @default(now())
+  deliveryMethod  Delivery  @default(SHIP)
+  notes           String?
+
+  subtotal        Decimal   @db.Decimal(10, 2)
+  vat             Decimal   @db.Decimal(10, 2)
+  total           Decimal   @db.Decimal(10, 2)
+  acceptedTermsAt DateTime?
+
+  customerName    String?
+  customerType    CustomerType?
+  street          String?
+  city            String?
+  postcode        String?
+  phone           String?
+
+  status          OrderStatus @default(PENDING)
+
+  items           OrderItem[]
+}
+
+
+
+/*
+  عناصر الطلب (Order lines)
+*/
+model OrderItem {
+  id        String   @id @default(cuid())
+
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+
+  qty       Int
+  unitPrice Decimal  @db.Decimal(10, 2)  // السعر النهائي للوحدة في هذا الطلب
+}
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  DISPATCHED
+  COMPLETED
+  CANCELLED
+}
+
