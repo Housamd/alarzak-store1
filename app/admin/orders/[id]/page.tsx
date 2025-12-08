@@ -1,187 +1,232 @@
 // app/admin/orders/[id]/page.tsx
+
 import { prisma } from "@/lib/prisma";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
+type PageProps = {
+  params: { id: string };
+};
+
 export default async function AdminOrderDetailPage({
   params,
-}: {
-  params: { id: string };
-}) {
-  const order = await prisma.order.findUnique({
+}: PageProps) {
+  // نجلب الطلب مع الزبون والعناصر
+  const order = (await prisma.order.findUnique({
     where: { id: params.id },
     include: {
       customer: true,
       items: {
-        include: { product: true },
+        include: {
+          product: true,
+        },
       },
     },
-  });
+  })) as any;
 
   if (!order) {
     return (
-      <main className="space-y-4">
-        <p className="text-sm text-red-600">
-          Order not found.
+      <main className="max-w-3xl mx-auto py-8 px-4">
+        <h1 className="text-xl font-semibold mb-4">
+          Order not found
+        </h1>
+        <p className="text-sm text-gray-600">
+          There is no order with ID: {params.id}
         </p>
+        <div className="mt-4">
+          <Link
+            href="/admin/orders"
+            className="text-xs text-blue-600 hover:underline"
+          >
+            ← Back to orders
+          </Link>
+        </div>
       </main>
     );
   }
 
-  const createdAt = new Date(
-    order.createdAt
-  ).toLocaleString();
-  const subtotal = Number(order.subtotal).toFixed(2);
-  const vat = Number(order.vat).toFixed(2);
-  const total = Number(order.total).toFixed(2);
+  const createdAt = order.createdAt
+    ? new Date(order.createdAt)
+    : new Date();
 
   const customerName =
-    order.customerName ||
-    order.customer?.name ||
-    "Unknown";
+    order.customerName ??
+    order.customer?.name ??
+    "Customer";
+
+  const businessName =
+    order.customer?.businessName ?? null;
+
+  const street = order.street ?? "";
+  const city = order.city ?? "";
+  const postcode = order.postcode ?? "";
+  const phone = order.phone ?? "";
+  const customerType =
+    order.customerType ??
+    order.customer?.customerType ??
+    null;
+
+  const items = Array.isArray(order.items)
+    ? order.items
+    : [];
+
+  const subtotal = Number(order.subtotal ?? 0);
+  const vat = Number(order.vat ?? 0);
+  const total = Number(order.total ?? subtotal + vat);
+
+  const formatMoney = (v: any) =>
+    `£${Number(v || 0).toFixed(2)}`;
+
+  const addrParts: string[] = [];
+  if (street) addrParts.push(street);
+  if (city) addrParts.push(city);
+  if (postcode) addrParts.push(postcode);
+  const address =
+    addrParts.length > 0 ? addrParts.join(", ") : "-";
 
   return (
-    <main className="space-y-6">
-      <header className="flex items-center justify-between">
+    <main className="max-w-4xl mx-auto py-8 px-4 space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold">
-            Order #{order.id.slice(0, 8)}
-          </h2>
+          <h1 className="text-xl font-semibold">
+            Order details
+          </h1>
           <p className="text-xs text-gray-500">
-            Created: {createdAt}
+            Order ID:{" "}
+            <span className="font-mono">
+              {order.id}
+            </span>
+          </p>
+          <p className="text-xs text-gray-500">
+            Date: {createdAt.toLocaleString()}
           </p>
         </div>
-        <a
-          href="/admin/orders"
-          className="text-[11px] text-blue-600 hover:underline"
-        >
-          ← Back to orders
-        </a>
-      </header>
+        <div className="text-right space-y-2">
+          <Link
+            href="/admin/orders"
+            className="text-xs text-blue-600 hover:underline"
+          >
+            ← Back to orders
+          </Link>
+          <div>
+            <a
+              href={`/orders/${order.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-3 py-1 rounded border text-[11px] hover:bg-gray-50"
+            >
+              View / Print invoice
+            </a>
+          </div>
+        </div>
+      </div>
 
-      <section className="grid gap-4 md:grid-cols-2 text-xs">
-        {/* بيانات العميل */}
-        <div className="border rounded-lg bg-white p-3 space-y-1">
-          <h3 className="text-sm font-semibold border-b pb-2 mb-1">
-            Customer &amp; contact
-          </h3>
-          <p className="font-medium">{customerName}</p>
-          {order.businessName && (
-            <p>{order.businessName}</p>
-          )}
-          <p>{order.phone}</p>
-          {order.email && <p>{order.email}</p>}
-          <p className="mt-2 text-gray-500">
-            Type: {order.customerType || "N/A"}
-          </p>
-        </div>
-
-        {/* العنوان وطريقة التوصيل */}
-        <div className="border rounded-lg bg-white p-3 space-y-1">
-          <h3 className="text-sm font-semibold border-b pb-2 mb-1">
-            Delivery / collection
-          </h3>
-          <p>{order.street}</p>
-          <p>
-            {order.city} {order.postcode}
-          </p>
-          <p className="mt-2 text-gray-500">
-            Method: {order.deliveryMethod}
-          </p>
-          {order.notes && (
-            <p className="mt-2 text-gray-500">
-              Notes: {order.notes}
-            </p>
-          )}
-        </div>
+      {/* بيانات الزبون */}
+      <section className="border rounded-lg bg-white p-4 text-xs space-y-1">
+        <h2 className="font-semibold text-sm mb-1">
+          Customer
+        </h2>
+        <p className="font-medium">
+          {customerName}
+        </p>
+        {businessName && (
+          <p>{businessName}</p>
+        )}
+        {address !== "-" && <p>{address}</p>}
+        {phone && <p>Phone: {phone}</p>}
+        {customerType && (
+          <p>Type: {customerType}</p>
+        )}
       </section>
 
-      {/* العناصر */}
-      <section className="border rounded-lg bg-white p-3 text-xs space-y-3">
-        <h3 className="text-sm font-semibold border-b pb-2 mb-1">
-          Order items
-        </h3>
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead className="border-b bg-gray-50">
-              <tr>
-                <th className="py-2 px-2 text-left">
+      {/* عناصر الطلب */}
+      <section className="border rounded-lg bg-white p-4 text-xs">
+        <h2 className="font-semibold text-sm mb-2">
+          Items
+        </h2>
+        {items.length === 0 ? (
+          <p className="text-gray-500">
+            No items.
+          </p>
+        ) : (
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr className="border-b bg-gray-50">
+                <th className="text-left px-2 py-2">
                   Product
                 </th>
-                <th className="py-2 px-2 text-left">
-                  SKU
-                </th>
-                <th className="py-2 px-2 text-right">
+                <th className="text-left px-2 py-2">
                   Qty
                 </th>
-                <th className="py-2 px-2 text-right">
+                <th className="text-right px-2 py-2">
                   Unit price
                 </th>
-                <th className="py-2 px-2 text-right">
+                <th className="text-right px-2 py-2">
                   Line total
                 </th>
               </tr>
             </thead>
             <tbody>
-              {order.items.map((item) => {
+              {items.map((item: any) => {
+                const qty = Number(item.qty ?? 0);
                 const unitPrice = Number(
-                  item.unitPrice
-                ).toFixed(2);
-                const lineTotal = (
-                  Number(item.unitPrice) * item.qty
-                ).toFixed(2);
+                  item.unitPrice ?? 0
+                );
+                const lineTotal = qty * unitPrice;
+                const product = item.product ?? {};
+                const name =
+                  product.nameEn ?? "Product";
+                const sku = product.sku ?? "";
 
                 return (
                   <tr
                     key={item.id}
-                    className="border-b last:border-0"
+                    className="border-b"
                   >
-                    <td className="py-2 px-2">
-                      {item.product?.nameEn ||
-                        "Product"}
+                    <td className="px-2 py-2 align-top">
+                      <div className="font-medium">
+                        {name}
+                      </div>
+                      <div className="text-[10px] text-gray-500">
+                        {sku && (
+                          <>SKU: {sku}</>
+                        )}
+                      </div>
                     </td>
-                    <td className="py-2 px-2">
-                      {item.product?.sku || ""}
+                    <td className="px-2 py-2 align-top">
+                      {qty}
                     </td>
-                    <td className="py-2 px-2 text-right">
-                      {item.qty}
+                    <td className="px-2 py-2 align-top text-right">
+                      {formatMoney(unitPrice)}
                     </td>
-                    <td className="py-2 px-2 text-right">
-                      £{unitPrice}
-                    </td>
-                    <td className="py-2 px-2 text-right">
-                      £{lineTotal}
+                    <td className="px-2 py-2 align-top text-right">
+                      {formatMoney(lineTotal)}
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-        </div>
+        )}
+      </section>
 
-        <div className="flex justify-end mt-2">
-          <div className="space-y-1 text-xs min-w-[180px]">
-            <div className="flex justify-between">
-              <span>Subtotal</span>
-              <span>£{subtotal}</span>
-            </div>
-            <div className="flex justify-between text-gray-600">
-              <span>VAT</span>
-              <span>£{vat}</span>
-            </div>
-            <div className="flex justify-between border-t pt-2 mt-1 font-semibold">
-              <span>Total</span>
-              <span>£{total}</span>
-            </div>
+      {/* المجاميع */}
+      <section className="flex justify-end">
+        <div className="w-64 text-xs space-y-1">
+          <div className="flex justify-between">
+            <span>Subtotal</span>
+            <span>{formatMoney(subtotal)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>VAT</span>
+            <span>{formatMoney(vat)}</span>
+          </div>
+          <div className="flex justify-between border-t pt-2 mt-1 font-semibold">
+            <span>Total</span>
+            <span>{formatMoney(total)}</span>
           </div>
         </div>
-
-        <p className="text-[11px] text-gray-400 mt-2">
-          For official invoicing and VAT records, please refer
-          to your accounting system (e.g. Xero). This page is
-          for operational use inside Al-Razak only.
-        </p>
       </section>
     </main>
   );
