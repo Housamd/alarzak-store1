@@ -17,7 +17,7 @@ export async function generateOrderPDF(order: any): Promise<Buffer> {
       resolve(pdfBuffer);
     });
 
-    doc.on("error", (err) => {
+    doc.on("error", (err: any) => {
       reject(err);
     });
 
