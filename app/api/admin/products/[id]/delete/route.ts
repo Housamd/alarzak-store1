@@ -1,19 +1,38 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../../../../lib/authOptions'
-import { prisma } from '../../../../../lib/prisma'
+// app/api/admin/products/[id]/delete/route.ts
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
+import { prisma } from "@/lib/prisma";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions)
-  const user = session?.user as any
-  if (!user) return NextResponse.json({ ok:false, error:'Unauthorized' }, { status:401 })
-  if (!user.isAdmin) return NextResponse.json({ ok:false, error:'Forbidden' }, { status:403 })
+export async function POST(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    const user = session?.user as any;
 
-  // احذف العناصر التابعة ثم المنتج
-  await prisma.orderItem.deleteMany({ where: { productId: params.id } }).catch(()=>{})
-  await prisma.product.delete({ where: { id: params.id } })
+    // نتحقق أن المستخدم مسجل ومشرف (أدمن)
+    if (!user || !user.isAdmin) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
-  // 303 لضمان الرجوع لصفحة GET
-  const url = new URL('/admin/products', req.url)
-  return NextResponse.redirect(url, { status: 303 })
+    const productId = params.id;
+
+    // حذف المنتج
+    await prisma.product.delete({
+      where: { id: productId },
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("Delete product error:", err);
+    return NextResponse.json(
+      { error: "Failed to delete product." },
+      { status: 500 }
+    );
+  }
 }
