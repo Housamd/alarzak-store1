@@ -1,97 +1,115 @@
-// app/admin/login/page.tsx
 "use client";
+
+import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-import { useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-
 export default function AdminLoginPage() {
+  const router = useRouter();
+
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const from = searchParams.get("from") || "/admin";
-
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setLoading(true);
+
+    if (!email.trim() || !password.trim()) {
+      setError("Please enter email and password.");
+      return;
+    }
 
     try {
-      const res = await fetch("/api/admin/login", {
+      setLoading(true);
+      const res = await fetch("/api/auth/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ password }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
 
+      const data = await res.json().catch(() => null);
+
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        setError(
-          data?.error || "Invalid admin password."
-        );
+        const msg =
+          (data && (data.error || data.message)) ||
+          "Login failed. Please check your details.";
+        setError(msg);
         setLoading(false);
         return;
       }
 
-      // نجاح → نعيد التوجيه إلى /admin أو المسار الأصلي
-      router.push(from);
+      // بعد تسجيل الدخول، الميدل وير مسؤول يمنع غير الأدمن من دخول /admin
+      router.push("/admin");
       router.refresh();
-    } catch (err) {
-      console.error("Admin login error:", err);
-      setError("Something went wrong. Please try again.");
+    } catch {
+      setError("Unexpected error. Please try again.");
+    } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-sm border rounded-lg bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-semibold mb-2">
-          Admin sign in
-        </h1>
-        <p className="text-xs text-gray-500 mb-4">
-          This area is restricted to Al-Razak management.
-        </p>
+    <main className="max-w-md mx-auto py-10 px-4">
+      <h1 className="text-2xl font-semibold mb-2">
+        Admin sign in
+      </h1>
+      <p className="text-xs text-gray-600 mb-3">
+        This area is for authorised staff only.
+      </p>
 
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-3"
+      {error && (
+        <p className="mb-3 text-xs text-red-600">{error}</p>
+      )}
+
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4 text-sm"
+      >
+        <div className="space-y-1">
+          <label className="block text-xs">Email</label>
+          <input
+            type="email"
+            className="w-full border rounded px-2 py-1 text-sm"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="block text-xs">Password</label>
+          <input
+            type="password"
+            className="w-full border rounded px-2 py-1 text-sm"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-black text-white py-2 rounded text-sm font-medium disabled:opacity-50"
         >
-          <div className="space-y-1 text-sm">
-            <label className="block">
-              Admin password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) =>
-                setPassword(e.target.value)
-              }
-              className="w-full border rounded px-2 py-1.5 text-sm"
-              autoFocus
-            />
-          </div>
+          {loading ? "Signing in..." : "Sign in"}
+        </button>
+      </form>
 
-          {error && (
-            <p className="text-xs text-red-600">
-              {error}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading || !password}
-            className="w-full mt-2 px-3 py-2 rounded bg-black text-white text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
-          >
-            {loading ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
-      </div>
+      <p className="mt-4 text-xs text-gray-600">
+        Return to{" "}
+        <Link
+          href="/"
+          className="text-blue-600 underline"
+        >
+          homepage
+        </Link>
+        .
+      </p>
     </main>
   );
 }
