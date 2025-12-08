@@ -1,26 +1,32 @@
 // app/api/auth/register/route.ts
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
+type RegisterBody = {
+  name?: string;
+  email?: string;
+  password?: string;
+};
+
+function generateCustomerNumber() {
+  // رقم عميل بسيط وفريد (ليس مهم شكله حالياً، فقط unique)
+  return `C${Date.now()}`;
+}
+
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => null);
+    const body = (await req.json().catch(() => null)) as
+      | RegisterBody
+      | null;
 
-    const rawEmail =
-      body && typeof body.email === "string" ? body.email : "";
-    const email = rawEmail.toLowerCase().trim();
-
-    const name =
-      body && typeof body.name === "string" ? body.name.trim() : "";
-    const password =
-      body && typeof body.password === "string"
-        ? body.password
-        : "";
-    const confirmPassword =
-      body && typeof body.confirmPassword === "string"
-        ? body.confirmPassword
-        : password;
+    const email = body?.email?.toLowerCase().trim();
+    const password = body?.password;
+    const name = body?.name?.trim() || null;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -29,70 +35,45 @@ export async function POST(req: Request) {
       );
     }
 
-    if (password.length < 6) {
-      return NextResponse.json(
-        {
-          error:
-            "Password must be at least 6 characters long.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (password !== confirmPassword) {
-      return NextResponse.json(
-        { error: "Passwords do not match." },
-        { status: 400 }
-      );
-    }
-
-    // تحقق: هل يوجد زبون بنفس الإيميل؟
+    // لأن email ليس unique في الـ schema، نستخدم findFirst
     const existing = await prisma.customer.findFirst({
       where: { email },
     });
 
-    if (existing && existing.passwordHash) {
+    if (existing) {
       return NextResponse.json(
-        { error: "An account with this email already exists." },
+        { error: "This email is already registered." },
         { status: 400 }
       );
     }
 
+    // نولد رقم عميل
+    const customerNumber = generateCustomerNumber();
+
+    // نعمل hash للباسوورد
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // حقل number مطلوب و unique → نستخدم الإيميل كنمبر بسيط (أو نستطيع توليد شيء خاص)
-    const customerNumber =
-      existing?.number ||
-      `CUST-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    // نستخدم customerNumber كقاعدة للـ codeHash (legacy field)
+    const codeHash = await bcrypt.hash(customerNumber, 10);
 
-    const customer = existing
-      ? await prisma.customer.update({
-          where: { id: existing.id },
-          data: {
-            name: name || existing.name,
-            email,
-            passwordHash,
-            codeHash: existing.codeHash || passwordHash,
-            // customerType: نتركه للـ default (RETAIL)
-          },
-        })
-      : await prisma.customer.create({
-          data: {
-            number: customerNumber,
-            codeHash: passwordHash, // نستخدمه كقيمة افتراضية – لن يؤثر على منطقك الحالي
-            name: name || null,
-            email,
-            passwordHash,
-            // customerType: نتركه للـ default (RETAIL)
-          },
-        });
+    const customer = await prisma.customer.create({
+      data: {
+        email,
+        name,
+        number: customerNumber,
+        codeHash,
+        passwordHash,
+        isActive: true,
+        isAdmin: false,
+        customerType: "RETAIL", // زبون مفرد دائماً عند التسجيل
+      },
+    });
 
     const res = NextResponse.json({
       ok: true,
       customerId: customer.id,
     });
 
-    // تسجيل الدخول مباشرة بعد إنشاء الحساب
     res.cookies.set("customer_session", customer.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

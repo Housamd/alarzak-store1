@@ -1,20 +1,25 @@
 // app/api/auth/login/route.ts
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
+type LoginBody = {
+  email?: string;
+  password?: string;
+};
+
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => null);
+    const body = (await req.json().catch(() => null)) as
+      | LoginBody
+      | null;
 
-    const rawEmail =
-      body && typeof body.email === "string" ? body.email : "";
-    const email = rawEmail.toLowerCase().trim();
-
-    const password =
-      body && typeof body.password === "string"
-        ? body.password
-        : "";
+    const email = body?.email?.toLowerCase().trim();
+    const password = body?.password;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -23,11 +28,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // email ليس فريد في السكيمة، لذا نستخدم findFirst
+    // نستخدم findFirst لأن email ليس unique في الـ schema
     const customer = await prisma.customer.findFirst({
       where: { email },
     });
 
+    // لو لا يوجد عميل أو لا يوجد passwordHash → نرجع 401، ليس 500
     if (!customer || !customer.passwordHash) {
       return NextResponse.json(
         { error: "Invalid email or password." },
@@ -47,18 +53,19 @@ export async function POST(req: Request) {
       );
     }
 
+    // نجاح: نعيد JSON ونضبط الكوكي
     const res = NextResponse.json({
       ok: true,
       customerId: customer.id,
+      isAdmin: customer.isAdmin,
     });
 
-    // كوكي جلسة الزبون
     res.cookies.set("customer_session", customer.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 7, // أسبوع
+      maxAge: 60 * 60 * 24 * 7,
     });
 
     return res;
