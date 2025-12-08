@@ -1,97 +1,82 @@
 // app/api/admin/orders/export/route.ts
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-const ALLOWED_STATUSES = [
-  "NEW",
-  "CONFIRMED",
-  "PREPARING",
-  "READY",
-  "OUT_FOR_DELIVERY",
-  "COMPLETED",
-];
+// نصدر CSV للطلبات لاحتياجات التقارير / المحاسبة
+export async function GET() {
+  // نجلب الطلبات مع بيانات الزبون
+  const orders = (await prisma.order.findMany({
+    include: {
+      customer: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  })) as any[];
 
-function escapeCsv(value: any): string {
-  const s =
-    value === null || value === undefined
-      ? ""
-      : String(value);
-  const escaped = s.replace(/"/g, '""');
-  return `"${escaped}"`;
-}
-
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const searchParams = url.searchParams;
-
-  const status = searchParams.get("status");
-  const q = searchParams.get("q")?.trim() || "";
-
-  const where: any = {};
-
-  if (status && ALLOWED_STATUSES.includes(status)) {
-    where.status = status;
-  }
-
-  if (q) {
-    where.OR = [
-      { customerName: { contains: q, mode: "insensitive" } },
-      { businessName: { contains: q, mode: "insensitive" } },
-      { phone: { contains: q, mode: "insensitive" } },
-      { id: { contains: q, mode: "insensitive" } },
-    ];
-  }
-
-  const orders = await prisma.order.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-  });
-
-  const headers = [
-    "Order ID",
-    "Date",
+  // رؤوس الأعمدة في CSV
+  const header = [
+    "OrderID",
+    "CreatedAt",
     "Status",
-    "Customer Name",
-    "Business Name",
+    "CustomerName",
+    "BusinessName",
     "Phone",
     "City",
     "Postcode",
-    "Delivery Method",
-    "Subtotal",
-    "VAT",
-    "Total",
+    "TotalGBP",
   ];
 
-  const lines: string[] = [];
-  lines.push(headers.map(escapeCsv).join(","));
+  // تحويل الطلبات إلى صفوف CSV
+  const rows = orders.map((o) => {
+    const createdAt =
+      o.createdAt instanceof Date
+        ? o.createdAt.toISOString()
+        : String(o.createdAt);
 
-  for (const o of orders) {
-    const row = [
-      o.id,
-      o.createdAt.toISOString(),
+    const total =
+      typeof o.total === "number"
+        ? o.total.toFixed(2)
+        : "0.00";
+
+    return [
+      o.id || "",
+      createdAt,
       o.status || "NEW",
       o.customerName || "",
       o.customer?.businessName || "",
       o.phone || "",
       o.city || "",
       o.postcode || "",
-      o.deliveryMethod || "",
-      Number(o.subtotal).toFixed(2),
-      Number(o.vat).toFixed(2),
-      Number(o.total).toFixed(2),
+      total,
     ];
+  });
 
-    lines.push(row.map(escapeCsv).join(","));
-  }
+  // نبني محتوى CSV كنص
+  const csvLines = [
+    header.join(","), // السطر الأول: الرؤوس
+    ...rows.map((r) =>
+      r
+        .map((v) => {
+          const s = String(v ?? "");
+          // نهرب الفواصل وعلامات الاقتباس
+          if (s.includes(",") || s.includes('"')) {
+            return `"${s.replace(/"/g, '""')}"`;
+          }
+          return s;
+        })
+        .join(",")
+    ),
+  ];
 
-  const csv = lines.join("\r\n");
+  const csvContent = csvLines.join("\n");
 
-  return new Response(csv, {
+  return new NextResponse(csvContent, {
     status: 200,
     headers: {
-      "Content-Type":
-        "text/csv; charset=utf-8",
+      "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition":
-        'attachment; filename="orders.csv"',
+        'attachment; filename="orders-export.csv"',
     },
   });
 }
