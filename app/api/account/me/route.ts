@@ -8,7 +8,7 @@ export async function GET() {
     const cookieStore = cookies();
     const session = cookieStore.get("customer_session");
 
-    if (!session || !session.value) {
+    if (!session?.value) {
       return NextResponse.json(
         { error: "Not authenticated" },
         { status: 401 }
@@ -19,6 +19,19 @@ export async function GET() {
 
     const customer = await prisma.customer.findUnique({
       where: { id: customerId },
+      // لا نطلب حقول غريبة حتى لا نصطدم بأي عمود ناقص
+      select: {
+        id: true,
+        number: true,
+        name: true,
+        email: true,
+        street: true,
+        city: true,
+        postcode: true,
+        phone: true,
+        businessName: true,
+        customerType: true,
+      },
     });
 
     if (!customer) {
@@ -28,17 +41,11 @@ export async function GET() {
       );
     }
 
-    // نرجّع فقط بيانات أساسية
-    return NextResponse.json({
-      id: customer.id,
-      name: customer.name,
-      email: customer.email,
-      customerType: customer.customerType,
-    });
+    return NextResponse.json(customer);
   } catch (err) {
     console.error("Error in /api/account/me:", err);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Failed to load profile" },
       { status: 500 }
     );
   }

@@ -1,25 +1,16 @@
 // app/api/auth/login/route.ts
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
-type LoginBody = {
-  email?: string;
-  password?: string;
-};
-
 export async function POST(req: Request) {
   try {
-    const body = (await req.json().catch(() => null)) as
-      | LoginBody
-      | null;
+    const body = await req.json().catch(() => null);
 
-    const email = body?.email?.toLowerCase().trim();
-    const password = body?.password;
+    const emailRaw = (body as any)?.email as string | undefined;
+    const password = (body as any)?.password as string | undefined;
+
+    const email = emailRaw?.toLowerCase().trim() ?? "";
 
     if (!email || !password) {
       return NextResponse.json(
@@ -28,32 +19,35 @@ export async function POST(req: Request) {
       );
     }
 
-    // نستخدم findFirst لأن email ليس unique في الـ schema
+    // مهم: Customer لا يملك unique على email، لذلك نستعمل findFirst
     const customer = await prisma.customer.findFirst({
-      where: { email },
+      where: {
+        email,
+        isActive: true,
+      },
     });
 
-    // لو لا يوجد عميل أو لا يوجد passwordHash → نرجع 401، ليس 500
     if (!customer || !customer.passwordHash) {
+      // لا تعطي تفاصيل للمهاجم
       return NextResponse.json(
         { error: "Invalid email or password." },
         { status: 401 }
       );
     }
 
-    const match = await bcrypt.compare(
+    const ok = await bcrypt.compare(
       password,
       customer.passwordHash
     );
 
-    if (!match) {
+    if (!ok) {
       return NextResponse.json(
         { error: "Invalid email or password." },
         { status: 401 }
       );
     }
 
-    // نجاح: نعيد JSON ونضبط الكوكي
+    // لو وصلنا هنا → تسجيل الدخول ناجح
     const res = NextResponse.json({
       ok: true,
       customerId: customer.id,
@@ -65,7 +59,7 @@ export async function POST(req: Request) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: 60 * 60 * 24 * 7, // أسبوع
     });
 
     return res;
