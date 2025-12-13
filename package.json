@@ -1,17 +1,17 @@
-{
-  "name": "adelina-like-store-en",
-  "private": true,
-  "version": "1.0.0",
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy",
-    "prisma:seed": "node -r dotenv/config prisma/seed.mjs",
-    "setup": "npm run prisma:generate && npm run prisma:migrate && npm run prisma:seed"
-  },
+"scripts": {
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start",
+  "lint": "next lint",
+
+  "prisma:generate": "prisma generate",
+  "prisma:migrate": "prisma migrate deploy",
+  "prisma:seed": "node -r dotenv/config prisma/seed.mjs",
+
+  "setup": "npm run prisma:generate && npm run prisma:migrate && npm run prisma:seed",
+
+  "vercel-build": "npm run setup && npm run build"
+}
   "dependencies": {
     "@prisma/client": "^6.18.0",
     "bcryptjs": "^2.4.3",
@@ -26,9 +26,10 @@
     "zustand": "4.5.2"
   },
   "devDependencies": {
-    "@types/node": "20.12.12",
-    "@types/react": "18.2.74",
     "@types/bcryptjs": "^2.4.6",
+    "@types/node": "20.12.12",
+    "@types/pdfkit": "^0.13.9",
+    "@types/react": "18.2.74",
     "autoprefixer": "10.4.19",
     "eslint": "8.57.0",
     "postcss": "8.4.38",
