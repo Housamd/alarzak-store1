@@ -3,13 +3,10 @@
   "build": "next build",
   "start": "next start",
   "lint": "next lint",
-
   "prisma:generate": "prisma generate",
   "prisma:migrate": "prisma migrate deploy",
   "prisma:seed": "node -r dotenv/config prisma/seed.mjs",
-
   "setup": "npm run prisma:generate && npm run prisma:migrate && npm run prisma:seed",
-
   "vercel-build": "npm run setup && npm run build"
 }
   "dependencies": {
